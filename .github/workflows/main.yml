@@ -1,0 +1,50 @@
+name: CI/CD
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v2
+
+    - name: Set up Terraform
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y unzip
+        curl -o terraform.zip -LJO https://releases.hashicorp.com/terraform/1.0.11/terraform_1.0.11_linux_amd64.zip
+        unzip terraform.zip
+        sudo mv terraform /usr/local/bin/
+        terraform --version
+
+    - name: Terraform Init
+      run: terraform init ./terraform
+
+    - name: Terraform Apply
+      run: terraform apply -auto-approve ./terraform
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v2
+
+    - name: Set up Octopus Deploy
+      run: |
+        curl -LJO https://github.com/OctopusDeploy/OctopusCLI/releases/download/v7.4.5/OctopusTools.7.4.5.zip
+        unzip OctopusTools.7.4.5.zip -d OctopusTools
+        sudo mv OctopusTools/Octo /usr/local/bin/
+        octo version
+
+    - name: Deploy to Octopus Deploy
+      run: |
+        octo deploy-release --project "Your Octopus Project Name" --server "https://your-octopus-server/" --apiKey ${{ secrets.OCTOPUS_API_KEY }}
+      env:
+        OCTOPUS_API_KEY: ${{ secrets.OCTOPUS_API_KEY }}
